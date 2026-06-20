@@ -8,6 +8,10 @@ scripts/smoke.ps1
 # Common local runtime noise
 .DS_Store
 node_modules/
+bin/
+obj/
+PowerSwitchApi/bin/
+PowerSwitchApi/obj/
 .venv/
 venv/
 __pycache__/
@@ -38,6 +42,10 @@ lerna-debug.log*
 # Dependencies and build output
 node_modules
 node_modules/
+bin/
+obj/
+PowerSwitchApi/bin/
+PowerSwitchApi/obj/
 dist
 dist/
 dist-ssr
