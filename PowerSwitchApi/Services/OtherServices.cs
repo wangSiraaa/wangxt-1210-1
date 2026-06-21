@@ -220,13 +220,11 @@ public class DualPowerCheckService : IDualPowerCheckService
 {
     private readonly AppDbContext _db;
     private readonly IMapper _mapper;
-    private readonly IPowerSwitchRequestService _requestService;
 
-    public DualPowerCheckService(AppDbContext db, IMapper mapper, IPowerSwitchRequestService requestService)
+    public DualPowerCheckService(AppDbContext db, IMapper mapper)
     {
         _db = db;
         _mapper = mapper;
-        _requestService = requestService;
     }
 
     public async Task<IEnumerable<DualPowerCheckDto>> GetByRequestAsync(Guid requestId)
@@ -269,6 +267,19 @@ public class DualPowerCheckService : IDualPowerCheckService
         request.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return await _requestService.GetByIdAsync(dto.RequestId);
+        return await GetFullRequestById(dto.RequestId);
+    }
+
+    private async Task<PowerSwitchRequestDto?> GetFullRequestById(Guid requestId)
+    {
+        var entity = await _db.PowerSwitchRequests
+            .Include(r => r.AffectedDevices)
+            .Include(r => r.SwitchSteps)
+            .Include(r => r.AlarmRecords)
+            .Include(r => r.RollbackRecords)
+            .Include(r => r.BusinessImpacts)
+            .Include(r => r.DualPowerCheckRecords)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+        return entity == null ? null : _mapper.Map<PowerSwitchRequestDto>(entity);
     }
 }
