@@ -126,6 +126,11 @@ public class BusinessImpactDto
     public string BusinessSystemName { get; set; } = string.Empty;
     public string? SystemCode { get; set; }
     public int AffectedCabinetCount { get; set; }
+    public int ConfirmStatus { get; set; }
+    public string ConfirmStatusText { get; set; } = string.Empty;
+    public string? ConfirmedBy { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    public string? ConfirmRemark { get; set; }
     public DateTime? ActualImpactStart { get; set; }
     public DateTime? ActualImpactEnd { get; set; }
     public string? ImpactDescription { get; set; }
@@ -194,4 +199,18 @@ public class RollbackDto
     public Guid RequestId { get; set; }
     public string OperatorName { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
+}
+
+public class BatchConfirmBusinessImpactDto
+{
+    public Guid RequestId { get; set; }
+    public string ConfirmedBy { get; set; } = string.Empty;
+    public List<BusinessImpactConfirmItemDto> Items { get; set; } = new();
+}
+
+public class BusinessImpactConfirmItemDto
+{
+    public Guid Id { get; set; }
+    public int ConfirmStatus { get; set; }
+    public string? ConfirmRemark { get; set; }
 }

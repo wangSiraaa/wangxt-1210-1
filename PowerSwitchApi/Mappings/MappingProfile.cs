@@ -27,7 +27,9 @@ public class MappingProfile : Profile
         CreateMap<AlarmRecord, AlarmRecordDto>()
             .ForMember(d => d.SeverityText, opt => opt.MapFrom(s => GetSeverityText(s.Severity)));
 
-        CreateMap<BusinessImpact, BusinessImpactDto>().ReverseMap();
+        CreateMap<BusinessImpact, BusinessImpactDto>()
+            .ForMember(d => d.ConfirmStatusText, opt => opt.MapFrom(s => GetConfirmStatusText(s.ConfirmStatus)));
+        CreateMap<BusinessImpactDto, BusinessImpact>();
         CreateMap<DualPowerCheckRecord, DualPowerCheckDto>().ReverseMap();
 
         CreateMap<DeviceTopology, DeviceTopologyDto>()
@@ -77,6 +79,14 @@ public class MappingProfile : Profile
         DeviceType.Cabinet => "机柜",
         DeviceType.ATS => "ATS",
         DeviceType.PDU => "PDU",
+        _ => "未知"
+    };
+
+    private static string GetConfirmStatusText(BusinessConfirmStatus status) => status switch
+    {
+        BusinessConfirmStatus.Unconfirmed => "未确认",
+        BusinessConfirmStatus.Confirmed => "已确认",
+        BusinessConfirmStatus.ToDiscuss => "待沟通",
         _ => "未知"
     };
 }

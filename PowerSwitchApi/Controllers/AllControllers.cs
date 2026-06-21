@@ -243,6 +243,14 @@ public class BusinessImpactsController : ControllerBase
         if (result == null) return NotFound();
         return Ok(result);
     }
+
+    [HttpPost("batch-confirm")]
+    public async Task<ActionResult<PowerSwitchRequestDto>> BatchConfirm([FromBody] BatchConfirmBusinessImpactDto dto)
+    {
+        var result = await _service.BatchConfirmAsync(dto);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
 }
 
 public class VerifyBody

@@ -78,6 +78,7 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
     {
         var request = await _db.PowerSwitchRequests
             .Include(r => r.AffectedDevices)
+            .Include(r => r.BusinessImpacts)
             .FirstOrDefaultAsync(r => r.Id == dto.RequestId);
         if (request == null) return null;
 
@@ -95,6 +96,8 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
         if (request.Status == RequestStatus.Draft)
             request.Status = RequestStatus.DutyManagerFilled;
         request.UpdatedAt = DateTime.UtcNow;
+
+        await GenerateBusinessImpactList(request);
 
         await _db.SaveChangesAsync();
         return await GetByIdAsync(dto.RequestId);
@@ -181,6 +184,7 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
         var request = await _db.PowerSwitchRequests
             .Include(r => r.AlarmRecords)
             .Include(r => r.SwitchSteps)
+            .Include(r => r.BusinessImpacts)
             .FirstOrDefaultAsync(r => r.Id == dto.RequestId);
         if (request == null) return null;
 
@@ -197,7 +201,7 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
         request.ExecutionCompletedAt = DateTime.UtcNow;
         request.UpdatedAt = DateTime.UtcNow;
 
-        await GenerateBusinessImpactList(request);
+        UpdateBusinessImpactTimestamps(request);
 
         await _db.SaveChangesAsync();
         return await GetByIdAsync(dto.RequestId);
@@ -219,6 +223,8 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
 
     private async Task GenerateBusinessImpactList(PowerSwitchRequest request)
     {
+        _db.BusinessImpacts.RemoveRange(request.BusinessImpacts);
+
         var affectedCabinets = await _db.AffectedDevices
             .Where(d => d.RequestId == request.Id && d.DeviceType == DeviceType.Cabinet)
             .ToListAsync();
@@ -247,10 +253,8 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
                             BusinessSystemName = key,
                             SystemCode = key,
                             AffectedCabinetCount = 0,
-                            ActualImpactStart = request.ExecutionStartedAt,
-                            ActualImpactEnd = request.ExecutionCompletedAt,
-                            ImpactDescription = "供电切换影响",
-                            RecoveryDetail = "已恢复双路供电"
+                            ConfirmStatus = BusinessConfirmStatus.Unconfirmed,
+                            ImpactDescription = "供电切换影响"
                         };
                     }
                     systemDict[key].AffectedCabinetCount++;
@@ -261,6 +265,16 @@ public class PowerSwitchRequestService : IPowerSwitchRequestService
         foreach (var bi in systemDict.Values)
         {
             _db.BusinessImpacts.Add(bi);
+        }
+    }
+
+    private void UpdateBusinessImpactTimestamps(PowerSwitchRequest request)
+    {
+        foreach (var bi in request.BusinessImpacts)
+        {
+            bi.ActualImpactStart = request.ExecutionStartedAt;
+            bi.ActualImpactEnd = request.ExecutionCompletedAt;
+            bi.RecoveryDetail = "已恢复双路供电";
         }
     }
 }

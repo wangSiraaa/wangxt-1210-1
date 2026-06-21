@@ -35,6 +35,24 @@ export enum StepStatus {
   Failed = 4
 }
 
+export enum BusinessConfirmStatus {
+  Unconfirmed = 0,
+  Confirmed = 1,
+  ToDiscuss = 2
+}
+
+export const BusinessConfirmStatusText: Record<number, string> = {
+  0: '未确认',
+  1: '已确认',
+  2: '待沟通'
+};
+
+export const BusinessConfirmStatusClass: Record<number, string> = {
+  0: 'confirm-unconfirmed',
+  1: 'confirm-confirmed',
+  2: 'confirm-todiscuss'
+};
+
 export const DeviceTypeText: Record<number, string> = {
   1: 'UPS',
   2: '母线',
@@ -176,6 +194,11 @@ export interface BusinessImpact {
   businessSystemName: string;
   systemCode?: string;
   affectedCabinetCount: number;
+  confirmStatus: number;
+  confirmStatusText: string;
+  confirmedBy?: string;
+  confirmedAt?: Date;
+  confirmRemark?: string;
   actualImpactStart?: Date;
   actualImpactEnd?: Date;
   impactDescription?: string;

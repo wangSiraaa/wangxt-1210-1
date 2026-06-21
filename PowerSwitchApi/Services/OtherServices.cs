@@ -214,6 +214,52 @@ public class BusinessImpactService : IBusinessImpactService
         await _db.SaveChangesAsync();
         return _mapper.Map<BusinessImpactDto>(entity);
     }
+
+    public async Task<PowerSwitchRequestDto?> BatchConfirmAsync(BatchConfirmBusinessImpactDto dto)
+    {
+        var request = await _db.PowerSwitchRequests
+            .Include(r => r.BusinessImpacts)
+            .FirstOrDefaultAsync(r => r.Id == dto.RequestId);
+        if (request == null) return null;
+
+        foreach (var item in dto.Items)
+        {
+            var impact = request.BusinessImpacts.FirstOrDefault(i => i.Id == item.Id);
+            if (impact != null)
+            {
+                impact.ConfirmStatus = (BusinessConfirmStatus)item.ConfirmStatus;
+                impact.ConfirmRemark = item.ConfirmRemark;
+                if (impact.ConfirmStatus != BusinessConfirmStatus.Unconfirmed)
+                {
+                    impact.ConfirmedBy = dto.ConfirmedBy;
+                    impact.ConfirmedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    impact.ConfirmedBy = null;
+                    impact.ConfirmedAt = null;
+                }
+            }
+        }
+
+        request.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return await GetFullRequestById(dto.RequestId);
+    }
+
+    private async Task<PowerSwitchRequestDto?> GetFullRequestById(Guid requestId)
+    {
+        var entity = await _db.PowerSwitchRequests
+            .Include(r => r.AffectedDevices)
+            .Include(r => r.SwitchSteps)
+            .Include(r => r.AlarmRecords)
+            .Include(r => r.RollbackRecords)
+            .Include(r => r.BusinessImpacts)
+            .Include(r => r.DualPowerCheckRecords)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+        return entity == null ? null : _mapper.Map<PowerSwitchRequestDto>(entity);
+    }
 }
 
 public class DualPowerCheckService : IDualPowerCheckService

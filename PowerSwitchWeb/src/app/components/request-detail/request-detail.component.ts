@@ -36,7 +36,10 @@ import {
   StepStatusClass,
   AlarmSeverityText,
   AlarmClassMap,
-  DeviceTypeText
+  DeviceTypeText,
+  BusinessConfirmStatus,
+  BusinessConfirmStatusText,
+  BusinessConfirmStatusClass
 } from '../../models';
 
 @Component({
@@ -266,9 +269,80 @@ import {
           </div>
         </mat-tab>
 
-        <mat-tab label="3. 低峰时段确认">
+        <mat-tab label="3. 业务确认">
           <div class="form-panel">
-            <h3 style="margin-top:0;">业务负责人确认低峰时段</h3>
+            <h3 style="margin-top:0;">业务负责人确认受影响系统</h3>
+            <div *ngIf="!request?.businessImpacts?.length" class="muted" style="padding:16px;">
+              请先在"影响范围登记"中登记受影响的机柜设备，系统将自动生成受影响业务系统清单
+            </div>
+            <form *ngIf="request?.businessImpacts?.length" [formGroup]="businessConfirmForm">
+              <mat-form-field class="full-width" style="margin-bottom:12px;">
+                <mat-label>业务负责人姓名</mat-label>
+                <input matInput formControlName="confirmedBy">
+              </mat-form-field>
+
+              <div formArrayName="items">
+                <table class="full-width" style="border-collapse: collapse;">
+                  <thead>
+                    <tr style="background:#f5f5f5;">
+                      <th style="padding:8px;text-align:left;width:30%;">业务系统</th>
+                      <th style="padding:8px;text-align:left;width:10%;">受影响机柜数</th>
+                      <th style="padding:8px;text-align:left;width:15%;">确认状态</th>
+                      <th style="padding:8px;text-align:left;width:30%;">确认备注</th>
+                      <th style="padding:8px;text-align:left;width:15%;">确认人/时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let fg of businessConfirmItemsArray.controls; let i=index" [formGroupName]="i" style="border-bottom:1px solid #eee;">
+                      <td style="padding:8px;">
+                        <strong>{{request.businessImpacts[i]?.businessSystemName}}</strong>
+                      </td>
+                      <td style="padding:8px;">{{request.businessImpacts[i]?.affectedCabinetCount}}</td>
+                      <td style="padding:8px;">
+                        <mat-form-field class="full-width" style="font-size:12px;">
+                          <mat-select formControlName="confirmStatus">
+                            <mat-option [value]="0">未确认</mat-option>
+                            <mat-option [value]="1">已确认</mat-option>
+                            <mat-option [value]="2">待沟通</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </td>
+                      <td style="padding:8px;">
+                        <mat-form-field class="full-width" style="font-size:12px;">
+                          <input matInput formControlName="confirmRemark" placeholder="备注（可选）">
+                        </mat-form-field>
+                      </td>
+                      <td style="padding:8px;">
+                        <div *ngIf="request.businessImpacts[i]?.confirmedBy" class="muted" style="font-size:12px;">
+                          {{request.businessImpacts[i]?.confirmedBy}}
+                          <br>
+                          {{formatDate(request.businessImpacts[i]?.confirmedAt)}}
+                        </div>
+                        <div *ngIf="!request.businessImpacts[i]?.confirmedBy" class="muted" style="font-size:12px;">
+                          -
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="action-bar" style="margin-top:16px;">
+                <button mat-raised-button color="warn" (click)="batchConfirmBusinessImpacts()" [disabled]="businessConfirmForm.invalid">
+                  <mat-icon>done_all</mat-icon> 保存业务确认
+                </button>
+                <span class="muted">
+                  共 {{request.businessImpacts?.length || 0}} 个系统，
+                  已确认 {{request.businessImpacts?.filter(b => b.confirmStatus === 1).length || 0}} 个，
+                  待沟通 {{request.businessImpacts?.filter(b => b.confirmStatus === 2).length || 0}} 个，
+                  未确认 {{unconfirmedBusinessCount}} 个
+                </span>
+              </div>
+            </form>
+
+            <mat-divider style="margin:24px 0;"></mat-divider>
+
+            <h3>低峰时段确认</h3>
             <form [formGroup]="businessForm" (ngSubmit)="confirmLowPeak()">
               <div class="grid-2">
                 <mat-form-field class="full-width">
@@ -393,6 +467,14 @@ import {
               <mat-icon>warning</mat-icon> 存在未确认的告警，无法结束切换，请先确认告警
             </div>
 
+            <div *ngIf="hasUnconfirmedBusiness && (request.status === RequestStatus.Executing || request.status === RequestStatus.AlarmsPending || request.status === RequestStatus.Recovering)" style="padding:12px;background:#fff8e1;border-radius:4px;margin-bottom:16px;color:#f57f17;">
+              <mat-icon>info</mat-icon>
+              存在 <strong>{{unconfirmedBusinessCount}}</strong> 个未确认的受影响业务系统，请留意业务影响。
+              <button mat-button color="accent" (click)="tabs.selectedIndex = 2" style="margin-left:8px;padding:0 8px;min-width:auto;">
+                查看确认列表
+              </button>
+            </div>
+
             <mat-card style="margin-bottom:16px;">
               <mat-card-title style="font-size:14px;">告警记录</mat-card-title>
               <table *ngIf="request.alarmRecords?.length" class="full-width" style="border-collapse: collapse;">
@@ -450,15 +532,17 @@ import {
 
         <mat-tab label="6. 影响业务清单">
           <div class="form-panel">
-            <h3 style="margin-top:0;">恢复后自动生成的影响业务清单</h3>
-            <div *ngIf="request.status < RequestStatus.Completed" class="muted" style="padding:16px;">
-              切换完成后将根据机柜拓扑自动生成影响业务清单
+            <h3 style="margin-top:0;">受影响业务系统清单</h3>
+            <div *ngIf="!request.businessImpacts?.length" class="muted" style="padding:16px;">
+              请先在"影响范围登记"中登记受影响的机柜设备
             </div>
             <table *ngIf="request.businessImpacts?.length" class="full-width" style="border-collapse: collapse;">
               <thead>
                 <tr style="background:#f5f5f5;">
                   <th style="padding:8px;text-align:left;">业务系统</th>
                   <th style="padding:8px;text-align:left;">受影响机柜数</th>
+                  <th style="padding:8px;text-align:left;">确认状态</th>
+                  <th style="padding:8px;text-align:left;">确认人/时间</th>
                   <th style="padding:8px;text-align:left;">实际影响开始</th>
                   <th style="padding:8px;text-align:left;">实际影响结束</th>
                   <th style="padding:8px;text-align:left;">影响描述</th>
@@ -472,10 +556,25 @@ import {
                     <strong>{{bi.businessSystemName}}</strong>
                   </td>
                   <td style="padding:8px;">{{bi.affectedCabinetCount}}</td>
-                  <td style="padding:8px;">{{formatDate(bi.actualImpactStart)}}</td>
-                  <td style="padding:8px;">{{formatDate(bi.actualImpactEnd)}}</td>
-                  <td style="padding:8px;">{{bi.impactDescription}}</td>
-                  <td style="padding:8px;">{{bi.recoveryDetail}}</td>
+                  <td style="padding:8px;">
+                    <span class="status-badge" [ngClass]="BusinessConfirmStatusClass[bi.confirmStatus]">
+                      {{BusinessConfirmStatusText[bi.confirmStatus]}}
+                    </span>
+                  </td>
+                  <td style="padding:8px;">
+                    <div *ngIf="bi.confirmedBy" class="muted" style="font-size:12px;">
+                      {{bi.confirmedBy}}
+                      <br>
+                      {{formatDate(bi.confirmedAt)}}
+                    </div>
+                    <div *ngIf="!bi.confirmedBy" class="muted" style="font-size:12px;">
+                      -
+                    </div>
+                  </td>
+                  <td style="padding:8px;">{{bi.actualImpactStart ? formatDate(bi.actualImpactStart) : '-'}}</td>
+                  <td style="padding:8px;">{{bi.actualImpactEnd ? formatDate(bi.actualImpactEnd) : '-'}}</td>
+                  <td style="padding:8px;">{{bi.impactDescription || '-'}}</td>
+                  <td style="padding:8px;">{{bi.recoveryDetail || '-'}}</td>
                   <td style="padding:8px;">
                     <div *ngIf="bi.verifiedBy">
                       <mat-icon style="color:#2e7d32;vertical-align:middle;">check_circle</mat-icon>
@@ -513,11 +612,15 @@ export class RequestDetailComponent implements OnInit {
   AlarmSeverityText = AlarmSeverityText;
   AlarmClassMap = AlarmClassMap;
   DeviceTypeText = DeviceTypeText;
+  BusinessConfirmStatus = BusinessConfirmStatus;
+  BusinessConfirmStatusText = BusinessConfirmStatusText;
+  BusinessConfirmStatusClass = BusinessConfirmStatusClass;
 
   dutyForm!: FormGroup;
   stepForm!: FormGroup;
   businessForm!: FormGroup;
   checkForm!: FormGroup;
+  businessConfirmForm!: FormGroup;
 
   deviceOptions: DeviceTopology[] = [];
 
@@ -557,6 +660,10 @@ export class RequestDetailComponent implements OnInit {
       remark: [''],
       checks: this.fb.array([])
     });
+    this.businessConfirmForm = this.fb.group({
+      confirmedBy: ['', Validators.required],
+      items: this.fb.array([])
+    });
   }
 
   get devicesArray(): FormArray {
@@ -571,9 +678,22 @@ export class RequestDetailComponent implements OnInit {
     return this.checkForm.get('checks') as FormArray;
   }
 
+  get businessConfirmItemsArray(): FormArray {
+    return this.businessConfirmForm.get('items') as FormArray;
+  }
+
   get hasUnconfirmedCritical(): boolean {
     if (!this.request?.alarmRecords) return false;
     return this.request.alarmRecords.some(a => !a.isConfirmed && a.severity >= 2);
+  }
+
+  get unconfirmedBusinessCount(): number {
+    if (!this.request?.businessImpacts) return 0;
+    return this.request.businessImpacts.filter(b => b.confirmStatus === BusinessConfirmStatus.Unconfirmed).length;
+  }
+
+  get hasUnconfirmedBusiness(): boolean {
+    return this.unconfirmedBusinessCount > 0;
   }
 
   loadDeviceOptions(): void {
@@ -651,6 +771,16 @@ export class RequestDetailComponent implements OnInit {
       checkedBy: '',
       remark: data.dualPowerCheckRemark || ''
     });
+
+    this.businessConfirmForm.patchValue({
+      confirmedBy: data.businessOwnerName || ''
+    });
+    while (this.businessConfirmItemsArray.length) this.businessConfirmItemsArray.removeAt(0);
+    (data.businessImpacts || []).forEach(bi => this.businessConfirmItemsArray.push(this.fb.group({
+      id: [bi.id],
+      confirmStatus: [bi.confirmStatus, Validators.required],
+      confirmRemark: [bi.confirmRemark || '']
+    })));
   }
 
   onTabChange(event: any): void {}
@@ -763,6 +893,39 @@ export class RequestDetailComponent implements OnInit {
         },
         error: () => this.snack.open('保存失败', '关闭', { duration: 3000 })
       });
+  }
+
+  batchConfirmBusinessImpacts(): void {
+    if (this.businessConfirmForm.invalid || !this.request) return;
+    const v = this.businessConfirmForm.value;
+    const items = v.items
+      .filter((item: any, i: number) => {
+        const original = this.request?.businessImpacts?.[i];
+        return original && (item.confirmStatus !== original.confirmStatus || item.confirmRemark !== original.confirmRemark);
+      })
+      .map((item: any, i: number) => ({
+        id: item.id,
+        confirmStatus: item.confirmStatus,
+        confirmRemark: item.confirmRemark
+      }));
+
+    if (items.length === 0) {
+      this.snack.open('没有变更需要保存', '关闭', { duration: 2000 });
+      return;
+    }
+
+    this.api.batchConfirmBusinessImpacts({
+      requestId: this.request.id,
+      confirmedBy: v.confirmedBy,
+      items: items
+    }).subscribe({
+      next: (r) => {
+        this.request = r;
+        this.snack.open(`已保存 ${items.length} 条确认记录`, '关闭', { duration: 2000 });
+        this.loadDetail();
+      },
+      error: () => this.snack.open('保存失败', '关闭', { duration: 3000 })
+    });
   }
 
   confirmLowPeak(): void {

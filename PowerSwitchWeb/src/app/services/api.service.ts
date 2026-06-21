@@ -105,6 +105,10 @@ export class ApiService {
     return this.http.post<BusinessImpact>(`${this.baseUrl}/BusinessImpacts/${id}/verify`, { verifiedBy });
   }
 
+  batchConfirmBusinessImpacts(data: { requestId: string; confirmedBy: string; items: { id: string; confirmStatus: number; confirmRemark?: string }[] }): Observable<PowerSwitchRequest> {
+    return this.http.post<PowerSwitchRequest>(`${this.baseUrl}/BusinessImpacts/batch-confirm`, data);
+  }
+
   getDualPowerChecks(requestId: string): Observable<DualPowerCheck[]> {
     return this.http.get<DualPowerCheck[]>(`${this.baseUrl}/DualPowerChecks/by-request/${requestId}`);
   }

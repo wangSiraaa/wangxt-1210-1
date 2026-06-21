@@ -28,6 +28,7 @@ public interface IBusinessImpactService
 {
     Task<IEnumerable<BusinessImpactDto>> GetByRequestAsync(Guid requestId);
     Task<BusinessImpactDto?> VerifyAsync(Guid id, string verifiedBy);
+    Task<PowerSwitchRequestDto?> BatchConfirmAsync(BatchConfirmBusinessImpactDto dto);
 }
 
 public interface IDualPowerCheckService

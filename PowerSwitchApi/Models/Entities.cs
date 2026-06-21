@@ -44,6 +44,13 @@ public enum StepStatus
     Failed = 4
 }
 
+public enum BusinessConfirmStatus
+{
+    Unconfirmed = 0,
+    Confirmed = 1,
+    ToDiscuss = 2
+}
+
 public class PowerSwitchRequest
 {
     [Key]
@@ -220,6 +227,15 @@ public class BusinessImpact
     public string? SystemCode { get; set; }
 
     public int AffectedCabinetCount { get; set; }
+
+    public BusinessConfirmStatus ConfirmStatus { get; set; }
+
+    [MaxLength(100)]
+    public string? ConfirmedBy { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+
+    [MaxLength(1000)]
+    public string? ConfirmRemark { get; set; }
 
     public DateTime? ActualImpactStart { get; set; }
     public DateTime? ActualImpactEnd { get; set; }
